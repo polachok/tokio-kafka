@@ -1,3 +1,4 @@
+#![feature(conservative_impl_trait, universal_impl_trait)]
 #![recursion_limit="128"]
 
 #![cfg_attr(feature="clippy", feature(plugin))]

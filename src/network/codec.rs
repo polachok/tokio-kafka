@@ -32,6 +32,8 @@ impl<'a> Encoder for KafkaCodec<'a> {
     fn encode(&mut self, request: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let off = dst.len();
 
+        println!("self.requests.len() = {} cap = {}", self.requests.len(), self.requests.capacity());
+
         let &RequestHeader {
             api_key,
             api_version,

@@ -15,8 +15,9 @@ use bytes::Bytes;
 
 use rand::{self, Rng};
 
+use futures;
 use futures::{Async, IntoFuture, Poll};
-use futures::future::{self, Future};
+use futures::future::{self, Future, Either};
 use futures::unsync::oneshot;
 use tokio_core::reactor::{Handle, Timeout};
 use tokio_middleware::Timeout as TimeoutMiddleware;
@@ -401,7 +402,7 @@ where
     }
 
     fn metadata(&self) -> GetMetadata {
-        (*self.inner.state).borrow().metadata()
+        (*self.inner.state).borrow().metadata().static_boxed()
     }
 
     fn retry_strategy(&self) -> Vec<Duration> {
@@ -646,7 +647,7 @@ where
         self.config.client_id.clone().map(Cow::from)
     }
 
-    pub fn metadata(&self) -> GetMetadata {
+    pub fn metadata(&self) -> impl Future<Item = Rc<Metadata>, Error = Error> {
         (*self.state).borrow().metadata()
     }
 
@@ -1441,17 +1442,23 @@ impl State {
         self.correlation_id - 1
     }
 
-    pub fn metadata(&self) -> GetMetadata {
-        let (sender, receiver) = oneshot::channel();
-
+    pub fn metadata(&self) -> impl Future<Item = Rc<Metadata>, Error = Error> {
+        /*println!("METADATA STATUS: {}", match self.metadata_status {
+            MetadataStatus::Loading(_) => "loading",
+            MetadataStatus::Loaded(_) => "loaded",
+        });
+        */
         match self.metadata_status {
-            MetadataStatus::Loading(ref senders) => senders.borrow_mut().push(sender),
-            MetadataStatus::Loaded(ref metadata) => drop(sender.send(metadata.clone())),
+            MetadataStatus::Loading(ref senders) => {
+                let (sender, receiver) = oneshot::channel();
+                senders.borrow_mut().push(sender);
+                Either::A(receiver
+                    .map_err(|_| ErrorKind::Canceled("load metadata canceled").into()))
+            },
+            MetadataStatus::Loaded(ref metadata) => {
+                Either::B(future::ok(metadata.clone()))
+            }
         }
-
-        receiver
-            .map_err(|_| ErrorKind::Canceled("load metadata canceled").into())
-            .static_boxed()
     }
 
     pub fn refresh_metadata(&mut self) {
