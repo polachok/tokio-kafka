@@ -17,7 +17,7 @@ use rand::{self, Rng};
 
 use futures;
 use futures::{Async, IntoFuture, Poll};
-use futures::future::{self, Future, Either};
+use futures::future::{self, Future};
 use futures::unsync::oneshot;
 use tokio_core::reactor::{Handle, Timeout};
 use tokio_middleware::Timeout as TimeoutMiddleware;
@@ -391,7 +391,27 @@ where
     }
 }
 
-pub type GetMetadata = StaticBoxFuture<Rc<Metadata>>;
+//pub type GetMetadata = StaticBoxFuture<Rc<Metadata>>;
+
+pub enum GetMetadata {
+    Loaded(Rc<Metadata>),
+    Loading(futures::unsync::oneshot::Receiver<Rc<Metadata>>),
+}
+
+impl Future for GetMetadata {
+    type Item = Rc<Metadata>;
+    type Error = Error;
+
+    fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
+        use futures::Async;
+
+        match *self {
+            GetMetadata::Loaded(ref meta) => Ok(Async::Ready(meta.clone())),
+            GetMetadata::Loading(ref mut inner) =>
+                 inner.poll().map_err(|_| ErrorKind::Canceled("load metadata canceled").into())
+        }
+    }
+}
 
 impl<'a> Client<'a> for KafkaClient<'a>
 where
@@ -402,7 +422,7 @@ where
     }
 
     fn metadata(&self) -> GetMetadata {
-        (*self.inner.state).borrow().metadata().static_boxed()
+        (*self.inner.state).borrow().metadata()
     }
 
     fn retry_strategy(&self) -> Vec<Duration> {
@@ -647,7 +667,7 @@ where
         self.config.client_id.clone().map(Cow::from)
     }
 
-    pub fn metadata(&self) -> impl Future<Item = Rc<Metadata>, Error = Error> {
+    pub fn metadata(&self) -> GetMetadata {
         (*self.state).borrow().metadata()
     }
 
@@ -1442,21 +1462,15 @@ impl State {
         self.correlation_id - 1
     }
 
-    pub fn metadata(&self) -> impl Future<Item = Rc<Metadata>, Error = Error> {
-        /*println!("METADATA STATUS: {}", match self.metadata_status {
-            MetadataStatus::Loading(_) => "loading",
-            MetadataStatus::Loaded(_) => "loaded",
-        });
-        */
+    pub fn metadata(&self) -> GetMetadata {
         match self.metadata_status {
             MetadataStatus::Loading(ref senders) => {
                 let (sender, receiver) = oneshot::channel();
                 senders.borrow_mut().push(sender);
-                Either::A(receiver
-                    .map_err(|_| ErrorKind::Canceled("load metadata canceled").into()))
+                GetMetadata::Loading(receiver)
             },
             MetadataStatus::Loaded(ref metadata) => {
-                Either::B(future::ok(metadata.clone()))
+                GetMetadata::Loaded(metadata.clone())
             }
         }
     }
