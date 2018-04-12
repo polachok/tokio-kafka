@@ -1047,12 +1047,12 @@ where
                             let tp = topic_partition!(topic_name.clone(), data.partition_id);
 
                             offsets_by_topic_partition.get(&tp).map(move |&fetch| FetchedRecords {
-                                partition_id: data.partition_id,
-                                error_code: data.error_code.into(),
-                                fetch_offset: fetch.offset,
-                                high_watermark: data.high_watermark,
-                                messages: data.message_set.messages,
-                            })
+                                    partition_id: data.partition_id,
+                                    error_code: data.error_code.into(),
+                                    fetch_offset: fetch.offset,
+                                    high_watermark: data.high_watermark,
+                                    messages: data.message_set.messages,
+                                })
                         })
                         .collect()
                 };

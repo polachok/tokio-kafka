@@ -78,6 +78,14 @@ impl KafkaResponse {
         match res {
             IResult::Done(remaining, res) => {
                 debug!("parsed response: {:?}", res);
+                /*
+                match api_key {
+                    ApiKeys::Fetch => {
+                        println!("{:?}", res);
+                    }
+                    _ => {},
+                }
+                */
 
                 if !remaining.is_empty() {
                     warn!("remaining {} bytes not parsed", remaining.len());
@@ -100,9 +108,9 @@ impl KafkaResponse {
                 Ok(None)
             }
             IResult::Error(err) => {
-                if log_enabled!(Debug) {
+                //if log_enabled!(Debug) {
                     display_parse_error::<KafkaResponse>(&buf[..], IResult::Error(err.clone()));
-                }
+                //}
 
                 Err(io::Error::new(
                     io::ErrorKind::InvalidData,
