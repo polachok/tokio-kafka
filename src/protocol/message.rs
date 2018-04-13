@@ -131,6 +131,13 @@ pub struct MessageSetEncoder {
 
 impl MessageSetEncoder {
     pub fn new(api_version: ApiVersion, compression: Option<Compression>) -> Self {
+        let api_version = if api_version > 1 {
+            debug!("MessageSetEncoder: we don't support api_version > 1 yet");
+            1
+        } else {
+            api_version
+        };
+
         MessageSetEncoder {
             api_version,
             compression,
@@ -303,13 +310,14 @@ impl MessageSetBuilder {
     #[cfg(any(feature = "gzip", feature = "snappy", feature = "lz4"))]
     fn wrap<T: ByteOrder>(&self, compression: Compression) -> Result<MessageSet> {
         let mut buf = BytesMut::with_capacity((self.message_set.size(self.api_version) * 6 / 5).next_power_of_two());
+        let compressed_offset = self.message_set.last().unwrap().offset;
         let encoder = MessageSetEncoder::new(self.api_version, Some(Compression::None));
         encoder.encode::<T>(&self.message_set, &mut buf)?;
         let compressed = compression.compress(self.api_version, &buf)?;
         Ok(MessageSet {
             messages: vec![
                 Message {
-                    offset: 0,
+                    offset: compressed_offset as i64,
                     timestamp: Some(MessageTimestamp::default()),
                     compression,
                     key: None,

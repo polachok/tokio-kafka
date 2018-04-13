@@ -800,7 +800,7 @@ where
         tp: &TopicPartition<'a>,
         records: Vec<Cow<'a, MessageSet>>,
     ) -> ProduceRecords {
-        let (api_version, addr) = metadata.leader_for(tp).map_or_else(
+        let (mut api_version, addr) = metadata.leader_for(tp).map_or_else(
             || (0, *self.config.hosts.iter().next().unwrap()),
             |broker| {
                 (
@@ -809,6 +809,11 @@ where
                 )
             },
         );
+
+        if api_version > 1 {
+            debug!("produce_records: we don't support api_version > 1 yet");
+            api_version = 1;
+        }
 
         let request = KafkaRequest::produce_records(
             api_version,
