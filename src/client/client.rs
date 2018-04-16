@@ -451,7 +451,7 @@ where
         self.metadata()
             .and_then(move |metadata| {
                 inner
-                    .topics_by_broker(&metadata, partitions)
+                    .topics_by_broker(&metadata, partitions, ApiKeys::Fetch)
                     .into_future()
                     .and_then(move |topics| {
                         inner.fetch_records(fetch_max_wait, fetch_min_bytes, fetch_max_bytes, topics)
@@ -465,7 +465,7 @@ where
         self.metadata()
             .and_then(move |metadata| {
                 inner
-                    .topics_by_broker(&metadata, partitions)
+                    .topics_by_broker(&metadata, partitions, ApiKeys::ListOffsets)
                     .into_future()
                     .and_then(move |topics| inner.list_offsets(topics))
             })
@@ -860,6 +860,7 @@ where
         &self,
         metadata: &Metadata,
         partitions: Vec<(TopicPartition<'a>, T)>,
+        request: ApiKeys,
     ) -> Result<TopicsByBroker<'a, T>> {
         let mut topics = HashMap::new();
 
@@ -872,7 +873,7 @@ where
                 .to_socket_addrs()?
                 .next()
                 .ok_or_else(|| ErrorKind::KafkaError(KafkaCode::LeaderNotAvailable))?;
-            let api_version = broker.api_version(ApiKeys::ListOffsets).unwrap_or_default();
+            let api_version = broker.api_version(request).unwrap_or_default();
 
             topics
                 .entry((addr, api_version))
