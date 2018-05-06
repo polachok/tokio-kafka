@@ -219,6 +219,12 @@ impl<'a, K, V> ConsumerBuilder<'a, K, V> {
         self.value_deserializer = Some(value_deserializer);
         self
     }
+
+    pub fn with_prefetch(mut self, low: usize, high: usize) -> Self {
+        self.config.prefetch_low_watermark = low;
+        self.config.prefetch_high_watermark = high;
+        self
+    }
 }
 
 impl<'a, V> ConsumerBuilder<'a, NoopDeserializer<()>, V>
