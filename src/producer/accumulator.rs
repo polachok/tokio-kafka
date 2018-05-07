@@ -185,6 +185,9 @@ impl<'a> Stream for Batches<'a> {
             }
         }
 
+        if self.force {
+            return Ok(Async::Ready(None));
+        }
         Ok(Async::NotReady)
     }
 }
