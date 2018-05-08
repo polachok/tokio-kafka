@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::hash::Hash;
 use std::cmp;
 use std::time::Duration;
@@ -149,6 +150,7 @@ where
                 fetcher,
                 timer,
                 state,
+                buffer: VecDeque::new(),
             })),
         })
     }
@@ -180,6 +182,7 @@ where
     fetcher: Rc<Fetcher<'a>>,
     timer: Rc<Timer>,
     state: State<'a, K::Item, V::Item>,
+    buffer: VecDeque<ConsumerRecord<'a, K::Item, V::Item>>,
 }
 
 enum State<'a, K, V> {
@@ -286,6 +289,13 @@ where
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
+            if self.consumer.config().prefetch_high_watermark != 0 &&
+                self.buffer.len() >= self.consumer.config().prefetch_high_watermark {
+                if let Some(record) = self.buffer.pop_front() {
+                    return Ok(Async::Ready(Some(record)));
+                }
+            }
+
             self.state = match self.state {
                 State::Joining(ref mut join_group) => {
                     try_ready!(join_group.poll());
@@ -339,7 +349,11 @@ where
                         )
                     }
                     Ok(Async::NotReady) => {
-                        return Ok(Async::NotReady);
+                        if let Some(record) = self.buffer.pop_front() {
+                            return Ok(Async::Ready(Some(record)));
+                        } else {
+                            return Ok(Async::NotReady);
+                        }
                     }
                     Err(err) => {
                         trace!("fail to fetch the records, {}", err);
@@ -348,15 +362,23 @@ where
                     }
                 },
                 State::Fetched(ref mut records, throttle_time) => {
-                    if let Some(record) = records.next() {
-                        return Ok(Async::Ready(Some(record)));
-                    } else if throttle_time > Duration::default() {
+                    for record in records {
+                        self.buffer.push_back(record);
+                    }
+
+                    if throttle_time > Duration::default() {
                         State::retry(self.timer.clone(), throttle_time)
                     } else {
                         State::fetching(self.subscriptions.clone(), self.fetcher.clone())
                     }
                 }
             };
+
+            if self.buffer.len() >= self.consumer.config().prefetch_low_watermark {
+                if let Some(record) = self.buffer.pop_front() {
+                    return Ok(Async::Ready(Some(record)));
+                }
+            }
         }
     }
 }

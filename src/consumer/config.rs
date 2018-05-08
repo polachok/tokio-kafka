@@ -177,6 +177,14 @@ pub struct ConsumerConfig {
     /// (broker config) or `max.message.bytes` (topic config).
     #[serde(rename = "max.partition.fetch.bytes")]
     pub partition_fetch_bytes: usize,
+
+     /// The minimum amount of messages the consumer should prefetch for records.
+     #[serde(rename = "prefetch.low.watermark.bytes")]
+     pub prefetch_low_watermark: usize,
+
+     /// The maximum amount of messages the consumer should prefetch.
+     #[serde(rename = "prefetch.high.watermark.bytes")]
+     pub prefetch_high_watermark: usize,
 }
 
 impl Deref for ConsumerConfig {
@@ -211,6 +219,8 @@ impl Default for ConsumerConfig {
             fetch_max_wait: DEFAULT_FETCH_MAX_WAIT_MILLIS,
             fetch_error_backoff: DEFAULT_FETCH_ERROR_BACKOFF_MILLIS,
             partition_fetch_bytes: DEFAULT_PARTITION_FETCH_BYTES,
+            prefetch_high_watermark: 0,
+            prefetch_low_watermark: 0,
         }
     }
 }
