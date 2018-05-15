@@ -49,6 +49,12 @@ pub struct MessageSet {
     pub messages: Vec<Message>,
 }
 
+impl MessageSet {
+    pub fn len(&self) -> usize {
+        self.messages.len()
+    }
+}
+
 impl Deref for MessageSet {
     type Target = [Message];
 

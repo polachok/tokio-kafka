@@ -51,7 +51,7 @@ where
     }
 
     pub fn send_batch(&self) -> SendBatch {
-        trace!("sending batch to {:?}: {:?}", self.tp, self.message_set);
+        println!("sending batch to {:?}: {}", self.tp, self.message_set.len());
 
         let topic_name: String = String::from(self.tp.topic_name.borrow());
         let partition_id = self.tp.partition_id;
