@@ -187,8 +187,6 @@ impl<'a> Stream for Batches<'a> {
             let ready = self.force || batches.back().map_or(false, |batch| {
                 if batch.is_full() {
                     println!("BATCH IS FULL");
-                } else {
-                    println!("BATCH: {:?}", batch);
                 }
                 batch.is_full() || (self.linger != Duration::from_secs(0) && batch.create_time().elapsed() >= self.linger)
             });
