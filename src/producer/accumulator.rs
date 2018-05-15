@@ -188,7 +188,7 @@ impl<'a> Stream for Batches<'a> {
                 if batch.is_full() {
                     println!("BATCH IS FULL");
                 }
-                batch.is_full() || (self.linger != Duration::from_secs(0) && batch.create_time().elapsed() >= self.linger)
+                batch.is_full() || batch.create_time().elapsed() >= self.linger
             });
 
             if ready {
