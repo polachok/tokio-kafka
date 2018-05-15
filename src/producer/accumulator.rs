@@ -85,6 +85,9 @@ impl<'a> Accumulator<'a> for RecordAccumulator<'a> {
                 Ok(push_recrod) => {
                     trace!("pushed record to latest batch, {:?}", batch);
 
+                    if batch.is_full() {
+                        println!("pushed IS_FULL record (1)");
+                    }
                     return PushRecord::new(push_recrod, batch.is_full(), false);
                 }
                 Err(err) => {
@@ -100,6 +103,10 @@ impl<'a> Accumulator<'a> for RecordAccumulator<'a> {
                 trace!("pushed record to a new batch, {:?}", batch);
 
                 let batch_is_full = batch.is_full();
+
+                if batch_is_full {
+                    println!("pushed IS_FULL record (2)");
+                }
 
                 batches.push_back(batch);
 
@@ -174,8 +181,16 @@ impl<'a> Stream for Batches<'a> {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         for (tp, batches) in self.batches.borrow_mut().iter_mut() {
+            if self.force {
+                println!("FORCED FLUSH");
+            }
             let ready = self.force || batches.back().map_or(false, |batch| {
-                batch.is_full() || batch.create_time().elapsed() >= self.linger
+                if batch.is_full() {
+                    println!("BATCH IS FULL");
+                } else {
+                    println!("BATCH: {:?}", batch);
+                }
+                batch.is_full() || (self.linger != Duration::from_secs(0) && batch.create_time().elapsed() >= self.linger)
             });
 
             if ready {

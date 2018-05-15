@@ -334,20 +334,27 @@ where
                         let generation = generation.clone();
 
                         Retry::spawn(client.retry_strategy(), move || {
-                            client.heartbeat(coordinator, generation.clone())
+                            client.heartbeat(coordinator, generation.clone()).map_err(|err| {
+                                println!("HEARTBEAT ERROR: {:?}", err);
+                                err
+                            })
                         })
                     };
 
                     let generation = generation.clone();
 
                     Either::A(send_heartbeat.then(move |res| match res {
-                        Ok(_) => Ok(()),
+                        Ok(_) => {
+                            println!("heartbeat ok");
+                            Ok(())
+                        },
                         Err(err) => {
+                            println!("heartbeat error {:?}", err);
                             match err {
                                 RetryError::OperationError(ref err) => match *err {
                                     Error(ErrorKind::KafkaError(KafkaCode::CoordinatorLoadInProgress), _)
                                     | Error(ErrorKind::KafkaError(KafkaCode::RebalanceInProgress), _) => {
-                                        info!("group is loading or rebalancing, {}", err);
+                                        println!("group is loading or rebalancing, {}", err);
 
                                         state.borrow_mut().rebalancing(coordinator, generation.clone());
                                     }
@@ -355,15 +362,20 @@ where
                                     | Error(ErrorKind::KafkaError(KafkaCode::NotCoordinator), _)
                                     | Error(ErrorKind::KafkaError(KafkaCode::IllegalGeneration), _)
                                     | Error(ErrorKind::KafkaError(KafkaCode::UnknownMemberId), _) => {
-                                        info!("group has outdated, need to rejoin, {}", err);
+                                        println!("group has outdated, need to rejoin, {}", err);
 
                                         state.borrow_mut().leaved();
                                     }
-                                    _ => warn!("unknown error, {}", err),
+                                    Error(ErrorKind::TimeoutError(ref err), _) => {
+                                        println!("heartbeat timeout error: {:?}", err);
+
+                                        state.borrow_mut().leaved();
+                                    }
+                                    _ => println!("unknown error, {}", err),
                                 },
-                                RetryError::TimerError(err) => {
-                                    warn!("timer error: {:?}", err);
-                                    return Ok(())
+                                RetryError::TimerError(ref err) => {
+                                    println!("timer error: {:?}", err);
+                                    state.borrow_mut().leaved();
                                 }
                             }
 
