@@ -369,15 +369,16 @@ where
                                     Error(ErrorKind::TimeoutError(ref err), _) => {
                                         println!("heartbeat timeout error: {:?}", err);
 
-                                        return Ok(());
-                                        //state.borrow_mut().leaved();
+                                        state.borrow_mut().leaved();
                                     }
-                                    _ => println!("unknown error, {}", err),
+                                    _ => {
+                                        state.borrow_mut().leaved();
+                                        println!("unknown error, {}", err)
+                                    }
                                 },
                                 RetryError::TimerError(ref err) => {
                                     println!("timer error: {:?}", err);
-                                    return Ok(());
-                                    //state.borrow_mut().leaved();
+                                    state.borrow_mut().leaved();
                                 }
                             }
 
