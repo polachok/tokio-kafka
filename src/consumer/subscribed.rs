@@ -139,7 +139,7 @@ where
         let state = if let Some(ref coordinator) = coordinator {
             State::Joining(coordinator.join_group())
         } else {
-            State::fetching(subscriptions.clone(), fetcher.clone())
+            State::updating(subscriptions.clone(), fetcher.clone())
         };
 
         Ok(SubscribedTopics {
@@ -290,23 +290,27 @@ where
             }
 
             self.state = match self.state {
+                State::Updating(ref mut updating) => {
+                    try_ready!(updating.poll());
+
+                    if let Some(ref coordinator) = self.coordinator {
+                        State::Joining(coordinator.join_group())
+                    } else {
+                        State::fetching(self.subscriptions.clone(), self.fetcher.clone())
+                    }
+                }
                 State::Joining(ref mut join_group) => {
                     try_ready!(join_group.poll());
 
                     if let Some(ref coordinator) = self.coordinator {
                         State::UpdatingOffsets(coordinator.update_offsets())
                     } else {
-                        State::updating(self.subscriptions.clone(), self.fetcher.clone())
+                        unreachable!()
                     }
                 }
                 State::UpdatingOffsets(ref mut updating) => {
                     debug!("updating offsets from coordinator");
                     try_ready!(updating.poll());
-                    State::updating(self.subscriptions.clone(), self.fetcher.clone())
-                }
-                State::Updating(ref mut updating) => {
-                    try_ready!(updating.poll());
-
                     State::fetching(self.subscriptions.clone(), self.fetcher.clone())
                 }
                 State::Retry(ref mut sleep) => {
