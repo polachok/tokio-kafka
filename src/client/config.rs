@@ -9,7 +9,7 @@ use client::KafkaVersion;
 ///
 /// Defaults to 5 seconds, see
 /// [`ClientConfig::max_connection_idle`](struct.ClientConfig.html#max_connection_idle.v)
-pub const DEFAULT_MAX_CONNECTION_IDLE_TIMEOUT_MILLIS: u64 = 5000;
+pub const DEFAULT_MAX_CONNECTION_IDLE_TIMEOUT_MILLIS: u64 = 60_000;
 
 /// The default milliseconds the client will wait for the response of a request.
 ///
