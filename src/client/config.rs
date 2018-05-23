@@ -9,7 +9,7 @@ use client::KafkaVersion;
 ///
 /// Defaults to 5 seconds, see
 /// [`ClientConfig::max_connection_idle`](struct.ClientConfig.html#max_connection_idle.v)
-pub const DEFAULT_MAX_CONNECTION_IDLE_TIMEOUT_MILLIS: u64 = 60_000;
+pub const DEFAULT_MAX_CONNECTION_IDLE_TIMEOUT_MILLIS: u64 = 600_000;
 
 /// The default milliseconds the client will wait for the response of a request.
 ///
@@ -107,7 +107,7 @@ impl Default for ClientConfig {
             broker_version_fallback: KafkaVersion::default(),
             metadata_max_age: DEFAULT_METADATA_MAX_AGE_MILLS,
             metrics: false,
-            retries: 0,
+            retries: 3,
             retry_backoff: DEFAULT_RETRY_BACKOFF_MILLIS,
         }
     }
