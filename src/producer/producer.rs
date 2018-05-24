@@ -1,5 +1,5 @@
 use std::borrow::{Borrow, Cow};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::hash::Hash;
@@ -72,6 +72,7 @@ where
     value_serializer: V,
     partitioner: P,
     interceptors: Interceptors<K::Item, V::Item>,
+    flush: RefCell<Option<Flush>>,
 }
 
 impl<'a, K, V, P> Deref for KafkaProducer<'a, K, V, P>
@@ -113,6 +114,7 @@ where
                 value_serializer,
                 partitioner,
                 interceptors,
+                flush: RefCell::new(None),
             }),
         }
     }
@@ -158,14 +160,17 @@ where
             .and_then(move |metadata| {
                 let push_record = inner.push_record(&metadata, record);
 
-                if push_record.is_full() {
-                    let flush = inner.flush_batches(false).map_err(|err| {
-                        warn!("fail to flush full batch, {}", err);
-                    });
+                if inner.flush.borrow().is_none() {
+                    println!("starting flusher");
+                    let flush = inner.flush_batches(false);
+                    ::std::mem::replace(&mut *inner.flush.borrow_mut(), Some(flush));
 
-                    inner.client.handle().spawn(flush);
+                    //inner.client.handle().spawn(flush);
+                } else {
+                    inner.flush.borrow_mut().poll();
                 }
 
+                /*
                 if push_record.new_batch() {
                     let timeout = Timeout::new(inner.config.linger(), inner.client.handle());
 
@@ -188,6 +193,7 @@ where
                         }
                     }
                 }
+                */
 
                 push_record
             })
@@ -286,7 +292,13 @@ where
 
                 match sender {
                     Ok(sender) => Retry::spawn(retry_strategy.clone(), move || sender.send_batch())
-                        .from_err()
+                        .then(|res| match res {
+                            Ok(_) => Ok(()),
+                            Err(err) => {
+                                println!("SEND ERROR: {:?}", err);
+                                Ok(())
+                            }
+                        })
                         .static_boxed(),
                     Err(err) => {
                         warn!("fail to create sender, {}", err);
