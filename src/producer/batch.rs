@@ -85,6 +85,10 @@ impl ProducerBatch {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.builder.len()
+    }
+
     pub fn create_time(&self) -> &Instant {
         &self.create_time
     }

@@ -306,6 +306,10 @@ impl MessageSetBuilder {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.message_set.len()
+    }
+
     pub fn api_version(&self) -> ApiVersion {
         self.api_version
     }

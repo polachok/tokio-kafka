@@ -181,9 +181,6 @@ impl<'a> Stream for Batches<'a> {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         for (tp, batches) in self.batches.borrow_mut().iter_mut() {
-            if self.force {
-                println!("FORCED FLUSH");
-            }
             let ready = self.force || batches.back().map_or(false, |batch| {
                 if batch.is_full() {
                     println!("BATCH IS FULL");
@@ -193,6 +190,9 @@ impl<'a> Stream for Batches<'a> {
 
             if ready {
                 if let Some(batch) = batches.pop_front() {
+                    if self.force {
+                        println!("FORCED FLUSH BATCH: len: {}", batch.len());
+                    }
                     return Ok(Async::Ready(Some((tp.clone(), batch))));
                 }
             }
